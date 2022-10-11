@@ -1,0 +1,12 @@
+# Namespaced project name that the target belongs to
+project: umoci
+
+# Target name (should be unique within the project)
+target: umoci-oci-casext-fuzz
+
+# Base image to run the binary in.
+image: ghcr.io/lotdeef/umoci:latest
+
+# List of commands used to test the target
+cmds:
+  - cmd: ./fuzz.libfuzzer
