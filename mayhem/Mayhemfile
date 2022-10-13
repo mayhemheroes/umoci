@@ -5,7 +5,7 @@ project: umoci
 target: umoci-oci-casext-fuzz
 
 # Base image to run the binary in.
-image: ghcr.io/lotdeef/umoci:latest
+# image: ghcr.io/lotdeef/umoci:latest
 
 # List of commands used to test the target
 cmds:
