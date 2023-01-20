@@ -1,0 +1,4 @@
+project: umoci
+target: umoci-oci-casext-fuzz
+cmds:
+  - cmd: ./oci-casext-fuzz.libfuzzer
