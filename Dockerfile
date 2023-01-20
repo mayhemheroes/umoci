@@ -1,7 +1,5 @@
-# SPDX-License-Identifier: Apache-2.0
 # umoci: Umoci Modifies Open Containers' Images
-# Copyright (C) 2016-2025 SUSE LLC
-# Copyright (C) 2026 Aleksa Sarai <cyphar@cyphar.com>
+# Copyright (C) 2016-2020 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,60 +13,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-## TOOLS: Basic golang tools can be installed using standard "go install".
-FROM golang:1.25 AS go-binaries
-ENV GOPATH=/go PATH=/go/bin:$PATH
-RUN go install github.com/cpuguy83/go-md2man/v2@latest
-# TODO: Get <https://github.com/vbatts/go-mtree/pull/211>,
-#       <https://github.com/vbatts/go-mtree/pull/212>, and
-#       <https://github.com/vbatts/go-mtree/pull/214> merged and switch.
-#RUN go install github.com/vbatts/go-mtree@latest
-RUN git clone -b umoci https://github.com/cyphar/go-mtree.git /tmp/gomtree
-RUN cd /tmp/gomtree && \
-	go install ./cmd/gomtree
+FROM registry.opensuse.org/opensuse/leap:15.2
+MAINTAINER "Aleksa Sarai <asarai@suse.com>"
 
-## CI: Pull the test image in a separate build stage.
-FROM quay.io/skopeo/stable:v1.21 AS test-image
-ENV SOURCE_IMAGE=/image SOURCE_TAG=latest
-ARG TEST_DOCKER_IMAGE=registry.opensuse.org/opensuse/tumbleweed:latest
-RUN skopeo copy docker://$TEST_DOCKER_IMAGE oci:$SOURCE_IMAGE:$SOURCE_TAG
-
-## CI: Final stage, putting together the image used for our actual tests.
-FROM registry.opensuse.org/opensuse/leap:16.0 AS ci-image
-LABEL org.opencontainers.image.authors="Aleksa Sarai <cyphar@cyphar.com>"
-
-RUN zypper -n up
+# We have to use out-of-tree repos because several packages haven't been merged
+# into openSUSE Leap yet, or are out of date in Leap.
+RUN zypper mr -d repo-non-oss repo-update-non-oss && \
+	zypper ar -f -p 5 -g obs://home:cyphar:bats obs-bats && \
+	zypper ar -f -p 10 -g obs://Virtualization:containers obs-vc && \
+	zypper ar -f -p 10 -g obs://devel:tools obs-tools && \
+	zypper ar -f -p 10 -g obs://devel:languages:go obs-go && \
+	zypper --gpg-auto-import-keys -n ref && \
+	zypper -n up
 RUN zypper -n in \
 		attr \
 		bats \
 		bc \
 		curl \
-		diff \
-		file \
-		findutils \
 		git \
 		gnu_parallel \
-		# Go 1.25's packaging is broken at the moment.
-		# See <https://bugzilla.suse.com/show_bug.cgi?id=1249985>.
-		go1.24 \
+		"go>=1.16" \
+		go-mtree \
 		gzip \
 		jq \
 		libcap-progs \
 		make \
 		moreutils \
-		python3-xattr python3-setuptools \
+		oci-image-tools \
+		oci-runtime-tools \
+		python-setuptools \
+		python-xattr \
 		runc \
 		skopeo \
 		tar \
 		which
-
 RUN useradd -u 1000 -m -d /home/rootless -s /bin/bash rootless
-RUN git config --system --add safe.directory /go/src/github.com/opencontainers/umoci
 
 ENV GOPATH=/go PATH=/go/bin:$PATH
-COPY --from=go-binaries /go/bin /go/bin
-ENV SOURCE_IMAGE=/image SOURCE_TAG=latest
-COPY --from=test-image $SOURCE_IMAGE $SOURCE_IMAGE
+RUN go get -u github.com/cpuguy83/go-md2man && \
+    go get -u golang.org/x/lint/golint && \
+    go get -u github.com/securego/gosec/cmd/gosec && \
+    go get -u github.com/client9/misspell/cmd/misspell
+
+ENV SOURCE_IMAGE=/opensuse SOURCE_TAG=latest
+ARG DOCKER_IMAGE=registry.opensuse.org/opensuse/leap:15.2
+RUN skopeo copy docker://$DOCKER_IMAGE oci:$SOURCE_IMAGE:$SOURCE_TAG
 
 VOLUME ["/go/src/github.com/opencontainers/umoci"]
 WORKDIR /go/src/github.com/opencontainers/umoci
