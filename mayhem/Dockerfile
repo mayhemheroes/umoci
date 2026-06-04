@@ -1,13 +1,18 @@
-FROM fuzzers/go-fuzz:1.2.0 as builder
+FROM golang:1.21 AS builder
 
-ARG project='umoci'
-ARG fuzzTargetPath='oci/casext'
-ARG fuzzTarget='oci-casext-fuzz'
+ENV GOTOOLCHAIN=auto
 
-ADD . ${project}
-WORKDIR ${project}
-RUN GO_ENABLED=0 go-fuzz-build -libfuzzer -o /${fuzzTarget}.a ./${fuzzTargetPath}
-RUN clang -fsanitize=fuzzer /${fuzzTarget}.a -o /${fuzzTarget}.libfuzzer
+ARG project=umoci
+ARG fuzzTargetPath=oci/casext
+ARG fuzzTarget=FuzzCasext
+ARG fuzzBin=oci-casext-fuzz
 
-FROM ubuntu:20.04
+WORKDIR /src
+COPY . .
+
+RUN go test -c -fuzz="${fuzzTarget}" \
+    -o "/${fuzzBin}.libfuzzer" \
+    ./${fuzzTargetPath}
+
+FROM ubuntu:22.04
 COPY --from=builder /oci-casext-fuzz.libfuzzer /
